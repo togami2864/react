@@ -4,7 +4,7 @@
   "keywords": [
     "react"
   ],
-  "version": "17.0.1",
+  "version": "17.0.3",
   "homepage": "https://reactjs.org/",
   "bugs": "https://github.com/facebook/react/issues",
   "license": "MIT",
@@ -17,17 +17,16 @@
     "umd/",
     "jsx-runtime.js",
     "jsx-dev-runtime.js",
-    "unstable-index.server.js",
-    "unstable-cache.js"
+    "unstable-shared-subset.js"
   ],
   "main": "index.js",
   "exports": {
     ".": {
-      "react-server": "./unstable-index.server.js",
+      "react-server": "./unstable-shared-subset.js",
       "default": "./index.js"
     },
     "./index": {
-      "react-server": "./unstable-index.server.js",
+      "react-server": "./unstable-shared-subset.js",
       "default": "./index.js"
     },
     "./build-info.json": "./build-info.json",

@@ -24,7 +24,6 @@ import {
   IdlePriority,
 } from '../SchedulerPriorities';
 import {
-  sharedProfilingBuffer,
   markTaskRun,
   markTaskYield,
   markTaskCompleted,
@@ -210,12 +209,16 @@ function workLoop(hasTimeRemaining, initialTime) {
       currentTask.callback = null;
       currentPriorityLevel = currentTask.priorityLevel;
       const didUserCallbackTimeout = currentTask.expirationTime <= currentTime;
-      markTaskRun(currentTask, currentTime);
+      if (enableProfiling) {
+        markTaskRun(currentTask, currentTime);
+      }
       const continuationCallback = callback(didUserCallbackTimeout);
       currentTime = getCurrentTime();
       if (typeof continuationCallback === 'function') {
         currentTask.callback = continuationCallback;
-        markTaskYield(currentTask, currentTime);
+        if (enableProfiling) {
+          markTaskYield(currentTask, currentTime);
+        }
       } else {
         if (enableProfiling) {
           markTaskCompleted(currentTask, currentTime);
@@ -512,21 +515,25 @@ const performWorkUntilDeadline = () => {
     // the message event.
     deadline = currentTime + yieldInterval;
     const hasTimeRemaining = true;
+
+    // If a scheduler task throws, exit the current browser task so the
+    // error can be observed.
+    //
+    // Intentionally not using a try-catch, since that makes some debugging
+    // techniques harder. Instead, if `scheduledHostCallback` errors, then
+    // `hasMoreWork` will remain true, and we'll continue the work loop.
+    let hasMoreWork = true;
     try {
-      const hasMoreWork = scheduledHostCallback(hasTimeRemaining, currentTime);
-      if (!hasMoreWork) {
+      hasMoreWork = scheduledHostCallback(hasTimeRemaining, currentTime);
+    } finally {
+      if (hasMoreWork) {
+        // If there's more work, schedule the next browser task at the end of
+        // the preceding one.
+        postTask(performWorkUntilDeadline);
+      } else {
         isTaskLoopRunning = false;
         scheduledHostCallback = null;
-      } else {
-        // If there's more work, schedule the next message event at the end
-        // of the preceding one.
-        postTask(performWorkUntilDeadline);
       }
-    } catch (error) {
-      // If a scheduler task throws, exit the current browser task so the
-      // error can be observed.
-      postTask(performWorkUntilDeadline);
-      throw error;
     }
   } else {
     isTaskLoopRunning = false;
@@ -587,6 +594,5 @@ export const unstable_Profiling = enableProfiling
   ? {
       startLoggingProfilingEvents,
       stopLoggingProfilingEvents,
-      sharedProfilingBuffer,
     }
   : null;
